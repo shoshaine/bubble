@@ -95,7 +95,7 @@
     </div>
 
     <div class="ca-container" title="Click to copy">
-        <span class="ca-label">CA:</span> 7fk1D9mbLi5AqueStc2duWiSixKVtDupNBadnhy1pump
+        <span class="ca-label">CA:</span> <span id="ca-value"></span>
     </div>
 
     <script>
@@ -107,6 +107,11 @@
         const MAX_MC = 7.80;
         const MIN_SIZE = 120; // px
         const MAX_SIZE = 320; // px
+
+        const CONTRACT_ADDRESS = '7fk1D9mbLi5AqueStc2duWiSixKVtDupNBadnhy1pump';
+
+        // Populate CA display from single source of truth
+        document.getElementById('ca-value').textContent = CONTRACT_ADDRESS;
 
         // Low-resolution pixel art canvas size
         const RES = 48;
@@ -188,7 +193,7 @@
 
         // Copy CA to clipboard on click
         document.querySelector('.ca-container').addEventListener('click', () => {
-            navigator.clipboard.writeText('7fk1D9mbLi5AqueStc2duWiSixKVtDupNBadnhy1pump').catch(() => {});
+            navigator.clipboard.writeText(CONTRACT_ADDRESS).catch(() => {});
         });
 
         // Initialize
