@@ -13,8 +13,8 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            background-color: white;
+            height: 100vh;
+            background-color: black;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             overflow: hidden;
         }
@@ -22,63 +22,67 @@
         h1 {
             font-size: 3rem;
             margin-bottom: 10px;
-            color: #333;
+            color: #555;
             letter-spacing: -2px;
         }
 
         .market-cap-container {
             font-size: 1.5rem;
             font-weight: 600;
-            color: #555;
-            margin-bottom: 30px;
+            color: #666;
+            margin-bottom: 40px;
             z-index: 10;
         }
 
-        #mc-value {
-            color: #ff6600;
-        }
-
-        /* The Bubble wrapper */
+        /* The Bubble */
         .bubble-wrapper {
             display: flex;
             align-items: center;
             justify-content: center;
             height: 400px;
             width: 400px;
+        }
+
+        .bubble {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            position: relative;
+            background: radial-gradient(circle at 30% 30%, 
+                rgba(255, 255, 255, 0.9) 0%, 
+                rgba(255, 255, 255, 0.4) 20%, 
+                rgba(173, 216, 230, 0.3) 50%, 
+                rgba(255, 182, 193, 0.3) 80%, 
+                rgba(138, 43, 226, 0.1) 100%);
+            box-shadow: 
+                inset 0 0 20px rgba(255, 255, 255, 0.5),
+                inset 10px 10px 20px rgba(173, 216, 230, 0.2),
+                0 10px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             animation: float 4s ease-in-out infinite;
         }
 
-        /* Pixelated canvas rendering */
-        #bubble-canvas {
-            image-rendering: pixelated;
-            image-rendering: -moz-crisp-edges;
-            image-rendering: crisp-edges;
-        }
-
-        /* Contract address */
-        .ca-container {
-            margin-top: 20px;
-            font-size: 0.75rem;
-            color: #aaa;
-            letter-spacing: 0.5px;
-            text-align: center;
-            cursor: pointer;
-            user-select: all;
-        }
-
-        .ca-container:hover {
-            color: #ff6600;
-        }
-
-        .ca-label {
-            font-weight: 700;
-            color: #555;
-            font-size: 0.85rem;
+        /* Shine effect on the bubble */
+        .bubble::after {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 15%;
+            width: 25%;
+            height: 25%;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            filter: blur(2px);
         }
 
         @keyframes float {
             0%, 100% { transform: translateY(0px) rotate(0deg); }
             50% { transform: translateY(-15px) rotate(2deg); }
+        }
+
+        #mc-value {
+            color: #fff;
         }
     </style>
 </head>
@@ -91,110 +95,37 @@
     </div>
 
     <div class="bubble-wrapper">
-        <canvas id="bubble-canvas" width="48" height="48"></canvas>
-    </div>
-
-    <div class="ca-container" title="Click to copy">
-        <span class="ca-label">CA:</span> <span id="ca-value"></span>
+        <div id="bubble" class="bubble"></div>
     </div>
 
     <script>
         const mcDisplay = document.getElementById('mc-value');
-        const canvas = document.getElementById('bubble-canvas');
-        const ctx = canvas.getContext('2d');
+        const bubble = document.getElementById('bubble');
 
         const MIN_MC = 5.52;
         const MAX_MC = 7.80;
         const MIN_SIZE = 120; // px
         const MAX_SIZE = 320; // px
 
-        const CONTRACT_ADDRESS = '7fk1D9mbLi5AqueStc2duWiSixKVtDupNBadnhy1pump';
-
-        // Populate CA display from single source of truth
-        document.getElementById('ca-value').textContent = CONTRACT_ADDRESS;
-
-        // Low-resolution pixel art canvas size
-        const RES = 48;
-
-        // Pre-compute bull horn pixels.
-        // Each horn is a 3-pixel-wide diagonal line starting from the upper area
-        // and converging toward the top of the bubble (center=24, top y≈13).
-        const LEFT_HORN = [];
-        for (let i = 0; i <= 13; i++) {
-            const y = 2 + i;
-            const x = 10 + i;
-            LEFT_HORN.push([x, y], [x + 1, y], [x + 2, y]);
-        }
-        // Right horn is the horizontal mirror of the left horn
-        const RIGHT_HORN = LEFT_HORN.map(([x, y]) => [RES - 1 - x, y]);
-
-        function drawBubble(displaySize) {
-            // Scale the canvas display size (CSS) to create the pixelated grow effect
-            canvas.style.width = `${displaySize}px`;
-            canvas.style.height = `${displaySize}px`;
-
-            ctx.clearRect(0, 0, RES, RES);
-
-            const cx = RES / 2;   // 24
-            const cy = RES - 18;  // 30
-            const r = 17;
-
-            // 1. Draw bull horns underneath the bubble (dark brown)
-            ctx.fillStyle = '#5C2D00';
-            [...LEFT_HORN, ...RIGHT_HORN].forEach(([x, y]) => {
-                ctx.fillRect(x, y, 1, 1);
-            });
-
-            // 2. Draw the orange bubble circle (pixel-by-pixel)
-            for (let py = 0; py < RES; py++) {
-                for (let px = 0; px < RES; px++) {
-                    const dx = px - cx;
-                    const dy = py - cy;
-                    if (dx * dx + dy * dy <= r * r) {
-                        ctx.fillStyle = '#FF7700';
-                        ctx.fillRect(px, py, 1, 1);
-                    }
-                }
-            }
-
-            // 3. Highlight — lighter warm orange at top-left of bubble
-            const hlx = cx - 5;
-            const hly = cy - 6;
-            const hlr = 4;
-            for (let py = 0; py < RES; py++) {
-                for (let px = 0; px < RES; px++) {
-                    const dx = px - hlx;
-                    const dy = py - hly;
-                    if (dx * dx + dy * dy <= hlr * hlr) {
-                        ctx.fillStyle = '#FFD090';
-                        ctx.fillRect(px, py, 1, 1);
-                    }
-                }
-            }
-        }
-
         function updateStats() {
             // Generate random MC between 5.52 and 7.80
             const randomMC = (Math.random() * (MAX_MC - MIN_MC) + MIN_MC).toFixed(2);
-
+            
             // Update text
             mcDisplay.innerText = randomMC;
 
-            // Calculate display size based on MC percentage
+            // Calculate size based on MC percentage
             const percentage = (randomMC - MIN_MC) / (MAX_MC - MIN_MC);
             const newSize = MIN_SIZE + (percentage * (MAX_SIZE - MIN_SIZE));
 
-            drawBubble(newSize);
+            // Apply size to bubble
+            bubble.style.width = `${newSize}px`;
+            bubble.style.height = `${newSize}px`;
 
             // Randomize next update interval between 800ms and 2500ms
             const nextUpdate = Math.floor(Math.random() * 1700) + 800;
             setTimeout(updateStats, nextUpdate);
         }
-
-        // Copy CA to clipboard on click
-        document.querySelector('.ca-container').addEventListener('click', () => {
-            navigator.clipboard.writeText(CONTRACT_ADDRESS).catch(() => {});
-        });
 
         // Initialize
         updateStats();
