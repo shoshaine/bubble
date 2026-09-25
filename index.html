@@ -74,7 +74,7 @@
     <h1>$BUBBLE</h1>
     
     <div class="market-cap-container">
-        Market Cap: $<span id="mc-value">5.52</span>k
+        Market Cap: <span id="mc-value">loading…</span>
     </div>
 
     <div class="bubble-wrapper">
@@ -85,29 +85,56 @@
         const mcDisplay = document.getElementById('mc-value');
         const bubble = document.getElementById('bubble');
 
-        const MIN_MC = 5.52;
-        const MAX_MC = 7.80;
+        // $BUBBLE token on stonk.fun (Raydium LaunchLab curve, graduates to Raydium).
+        // ?mint=<address> overrides for testing.
+        const MINT = 'NFH7R1aRMr9UUkXm8pcYHUwdMotGgvitG1ZZBmv43Vd';
+        const API_URL = 'https://www.stonkfun.xyz/api/public/v1/tokens/';
+
+        const MIN_MC = 4000;    // USD, ~launch market cap
+        const MAX_MC = 150000;  // USD, past graduation
         const MIN_SIZE = 120; // px
         const MAX_SIZE = 320; // px
+        const POLL_MS = 12000;
 
-        function updateStats() {
-            // Generate random MC between 5.52 and 7.80
-            const randomMC = (Math.random() * (MAX_MC - MIN_MC) + MIN_MC).toFixed(2);
-            
-            // Update text
-            mcDisplay.innerText = randomMC;
+        function formatMarketCap(mc) {
+            if (mc >= 1e6) return `$${(mc / 1e6).toFixed(2)}M`;
+            if (mc >= 1e3) return `$${(mc / 1e3).toFixed(2)}k`;
+            return `$${mc.toFixed(0)}`;
+        }
 
-            // Calculate size based on MC percentage
-            const percentage = (randomMC - MIN_MC) / (MAX_MC - MIN_MC);
-            const newSize = MIN_SIZE + (percentage * (MAX_SIZE - MIN_SIZE));
+        function sizeForMarketCap(mc) {
+            // Log scale so curve-phase moves and post-graduation moves both read
+            const lo = Math.log(MIN_MC), hi = Math.log(MAX_MC);
+            const pct = Math.min(Math.max((Math.log(Math.max(mc, 1)) - lo) / (hi - lo), 0), 1);
+            return MIN_SIZE + pct * (MAX_SIZE - MIN_SIZE);
+        }
 
-            // Apply size to bubble
-            bubble.style.width = `${newSize}px`;
-            bubble.style.height = `${newSize}px`;
-
-            // Randomize next update interval between 800ms and 2500ms
-            const nextUpdate = Math.floor(Math.random() * 1700) + 800;
-            setTimeout(updateStats, nextUpdate);
+        async function updateStats() {
+            const mint = new URLSearchParams(location.search).get('mint') || MINT;
+            try {
+                const res = await fetch(API_URL + mint);
+                if (res.status === 404) {
+                    // Token has not launched yet
+                    mcDisplay.innerText = 'awaiting launch';
+                    bubble.style.width = `${MIN_SIZE}px`;
+                    bubble.style.height = `${MIN_SIZE}px`;
+                } else if (res.ok) {
+                    const json = await res.json();
+                    const mc = json?.data?.token?.market?.marketCapUsd;
+                    // StonkFun reports USD market cap across the bonding curve
+                    // and after graduation, so one number covers both phases
+                    if (typeof mc === 'number' && mc > 0) {
+                        mcDisplay.innerText = formatMarketCap(mc);
+                        const newSize = sizeForMarketCap(mc);
+                        bubble.style.width = `${newSize}px`;
+                        bubble.style.height = `${newSize}px`;
+                    }
+                }
+                // On rate limits or other errors, keep the last shown value
+            } catch (err) {
+                console.warn('market cap fetch failed:', err);
+            }
+            setTimeout(updateStats, POLL_MS);
         }
 
         // Initialize
